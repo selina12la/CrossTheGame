@@ -20,8 +20,8 @@ public class BoardGenerator : MonoBehaviour
             var r = tile.GetComponent<Renderer>();
             r.sharedMaterial = (((x + y) & 1) == 0) ? lightMat : darkMat;
 
-            if (x == gm.startCell.x && y == gm.startCell.y) r.sharedMaterial.color = Color.green;
-            if (x == gm.goalCell.x  && y == gm.goalCell.y)  r.sharedMaterial.color = Color.red;
+            if (x == gm.startCell.x && y == gm.startCell.y) r.sharedMaterial.color = Color.black;
+            if (x == gm.goalCell.x  && y == gm.goalCell.y)  r.sharedMaterial.color = Color.white;
         }
     }
 }
