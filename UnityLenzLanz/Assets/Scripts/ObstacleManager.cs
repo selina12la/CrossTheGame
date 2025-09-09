@@ -3,37 +3,34 @@ using UnityEngine;
 
 public class ObstacleManager : MonoBehaviour
 {
-    [Header("Obstacle Setup")]
     public GameObject obstaclePrefab;
-    [Range(0, 100)]
-    public int obstacleCount = 12; // für 8x8 okay – passe an
+    [Range(0, 200)] public int obstacleCount = 12;
+
+    public Vector2Int minCell = new Vector2Int(0, 0);
+    public Vector2Int maxCell = new Vector2Int(14, 14); 
 
     public HashSet<Vector2Int> occupied = new HashSet<Vector2Int>();
 
     public void BuildObstacles(GameManager gm)
     {
+        foreach (Transform c in transform) DestroyImmediate(c.gameObject);
         occupied.Clear();
-
-        // Start & Ziel sperren
         occupied.Add(gm.startCell);
         occupied.Add(gm.goalCell);
 
-        int maxTries = obstacleCount * 10;
-        int placed = 0;
-        System.Random rng = new System.Random();
+        int tries = obstacleCount * 20, placed = 0;
+        var rng = new System.Random();
 
-        while (placed < obstacleCount && maxTries-- > 0)
+        while (placed < obstacleCount && tries-- > 0)
         {
-            int x = rng.Next(0, gm.width);
-            int y = rng.Next(0, gm.height);
+            int x = rng.Next(minCell.x, maxCell.x + 1);
+            int y = rng.Next(minCell.y, maxCell.y + 1);
             var cell = new Vector2Int(x, y);
-
             if (occupied.Contains(cell)) continue;
 
-            // Hindernis setzen
-            var obs = Instantiate(obstaclePrefab, transform);
-            obs.transform.position = gm.CellToWorld(cell) + Vector3.up * 0.5f; // Cube mit y=1 Höhe
-            obs.name = $"Obstacle_{cell.x}_{cell.y}";
+            var go = Instantiate(obstaclePrefab, transform);
+            go.transform.position = gm.CellToWorld(cell) + Vector3.up * 0.5f;
+            go.name = $"Obstacle_{x}_{y}";
 
             occupied.Add(cell);
             placed++;

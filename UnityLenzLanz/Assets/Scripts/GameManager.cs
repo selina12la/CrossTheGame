@@ -26,8 +26,7 @@ public class GameManager : MonoBehaviour
     {
         boardGenerator.BuildBoard(this);
         obstacleManager.BuildObstacles(this);
-
-        // Spieler auf Startposition setzen
+        
         if (player)
         {
             player.Init(this, startCell);

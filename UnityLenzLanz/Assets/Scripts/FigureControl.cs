@@ -5,41 +5,34 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Collider))]
 public class FigureControl : MonoBehaviour
 {
-    [Header("Movement")]
     [SerializeField] float stepSize = 1f;
     [SerializeField] float moveDuration = 0.14f;
     [SerializeField] float jumpHeight = 0.45f;
-
-    [Header("Input")]
     [SerializeField] float axisThreshold = 0.5f;
     [SerializeField] bool requireZeroBeforeNextStep = true;
-
-    [Header("Blocking")]
     [SerializeField] LayerMask obstacleMask;
     [SerializeField] float checkPadding = 0.05f;
-
-    [Header("Grid/Bounds")]
     [SerializeField] bool useGameManagerBounds = true;
     [SerializeField] bool placeOnStart = true;
+    [SerializeField] bool lockRotation = true;
     [SerializeField] GameManager gameManager;
 
-    FigureInputAction inputAction;
+    FigureInputAction ia;
     InputAction moveAction;
     Collider selfCol;
-    bool isMoving = false;
-    bool inputConsumed = false;
+    bool isMoving, inputConsumed;
     Vector2Int cellPos;
+    Quaternion initialRot;
 
     void Awake()
     {
-        inputAction = new FigureInputAction();
-        inputAction.Enable();
-        moveAction = inputAction.Figure.Move;
-
+        ia = new FigureInputAction();
+        ia.Enable();
+        moveAction = ia.Figure.Move;
         selfCol = GetComponent<Collider>();
         if (!gameManager) gameManager = FindAnyObjectByType<GameManager>();
-        if (gameManager && Mathf.Abs(stepSize - gameManager.cellSize) > 0.0001f)
-            stepSize = gameManager.cellSize;
+        if (gameManager) stepSize = gameManager.cellSize;
+        initialRot = transform.rotation;
     }
 
     void Start()
@@ -53,6 +46,7 @@ public class FigureControl : MonoBehaviour
 
     void Update()
     {
+        if (lockRotation) transform.rotation = initialRot;
         if (isMoving) return;
 
         Vector2 input = moveAction.ReadValue<Vector2>();
@@ -81,7 +75,7 @@ public class FigureControl : MonoBehaviour
             if (useGameManagerBounds && !gameManager.InBounds(targetCell)) return;
             Vector3 end = gameManager.CellToWorld(targetCell) + Vector3.up * 0.5f;
             if (IsBlockedAt(end)) return;
-            StartCoroutine(HopToCell(targetCell, end));
+            StartCoroutine(HopTo(targetCell, end));
         }
         else
         {
@@ -91,7 +85,7 @@ public class FigureControl : MonoBehaviour
         }
     }
 
-    IEnumerator HopToCell(Vector2Int targetCell, Vector3 end)
+    IEnumerator HopTo(Vector2Int targetCell, Vector3 end)
     {
         isMoving = true;
         Vector3 start = transform.position;
@@ -100,13 +94,15 @@ public class FigureControl : MonoBehaviour
         {
             t += Time.deltaTime / moveDuration;
             float y = Mathf.Sin(t * Mathf.PI) * jumpHeight;
-            transform.position = Vector3.Lerp(start, end, t) + Vector3.up * y;
+            Vector3 next = Vector3.Lerp(start, end, t) + Vector3.up * y;
+            if (IsBlockedAt(next)) { Hit(); yield break; }
+            transform.position = next;
+            if (lockRotation) transform.rotation = initialRot;
             yield return null;
         }
         cellPos = targetCell;
         transform.position = end;
         isMoving = false;
-        if (cellPos == gameManager.goalCell) Debug.Log("Ziel erreicht!");
     }
 
     IEnumerator HopToWorld(Vector3 end)
@@ -118,7 +114,10 @@ public class FigureControl : MonoBehaviour
         {
             t += Time.deltaTime / moveDuration;
             float y = Mathf.Sin(t * Mathf.PI) * jumpHeight;
-            transform.position = Vector3.Lerp(start, end, t) + Vector3.up * y;
+            Vector3 next = Vector3.Lerp(start, end, t) + Vector3.up * y;
+            if (IsBlockedAt(next)) { Hit(); yield break; }
+            transform.position = next;
+            if (lockRotation) transform.rotation = initialRot;
             yield return null;
         }
         transform.position = end;
@@ -129,19 +128,31 @@ public class FigureControl : MonoBehaviour
     {
         Bounds b = selfCol.bounds;
         Vector3 center = new Vector3(worldPos.x, b.center.y, worldPos.z);
-        Vector3 halfExtents = b.extents - new Vector3(checkPadding, checkPadding, checkPadding);
-        halfExtents.x = Mathf.Max(0.01f, halfExtents.x);
-        halfExtents.y = Mathf.Max(0.01f, halfExtents.y);
-        halfExtents.z = Mathf.Max(0.01f, halfExtents.z);
-        var hits = Physics.OverlapBox(center, halfExtents, Quaternion.identity, obstacleMask, QueryTriggerInteraction.Ignore);
+        Vector3 half = b.extents - Vector3.one * checkPadding;
+        half.x = Mathf.Max(0.01f, half.x);
+        half.y = Mathf.Max(0.01f, half.y);
+        half.z = Mathf.Max(0.01f, half.z);
+        var hits = Physics.OverlapBox(center, half, Quaternion.identity, obstacleMask, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < hits.Length; i++) if (hits[i] && hits[i] != selfCol) return true;
         return false;
     }
 
-    void SnapToCell(Vector2Int cell)
+    public void Hit()
     {
-        transform.position = gameManager.CellToWorld(cell) + Vector3.up * 0.5f;
+        isMoving = false;
+        if (gameManager)
+        {
+            cellPos = gameManager.startCell;
+            SnapToCell(cellPos);
+        }
+        else
+        {
+            transform.position = Vector3.zero;
+        }
+        if (lockRotation) transform.rotation = initialRot;
     }
+
+    void SnapToCell(Vector2Int cell) => transform.position = gameManager.CellToWorld(cell) + Vector3.up * 0.5f;
 
     Vector2Int WorldToCell(Vector3 worldPos)
     {

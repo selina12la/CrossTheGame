@@ -42,10 +42,8 @@ public class PlayerControllerGrid : MonoBehaviour
     {
         Vector2Int target = cellPos + dir;
 
-        // Grenzen prüfen
         if (!gm.InBounds(target)) return;
 
-        // Blockaden prüfen
         if (obstacles != null && obstacles.IsBlocked(target)) return;
 
         StartCoroutine(HopTo(target));
@@ -71,8 +69,7 @@ public class PlayerControllerGrid : MonoBehaviour
         cellPos = targetCell;
         transform.position = end;
         isMoving = false;
-
-        // Optional: Gewinn prüfen
+        
         if (cellPos == gm.goalCell)
         {
             Debug.Log("Ziel erreicht! 🎉");
