@@ -2,44 +2,20 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Board Settings")]
-    public int width = 8;
-    public int height = 8;
-    public Vector2Int startCell = new Vector2Int(0, 0);
-    public Vector2Int goalCell = new Vector2Int(7, 7);
-    public float cellSize = 1f;
+    public int width = 15, height = 27;
+    public int cellSize = 1;
     public Vector3 origin = Vector3.zero;
+    public Vector2Int startCell = new(0,0), goalCell = new(7,26);
 
-    [Header("Refs")]
     public BoardGenerator boardGenerator;
     public ObstacleManager obstacleManager;
-    public PlayerControllerGrid player;
 
-    private void Awake()
+    void Start()
     {
-        if (!boardGenerator) boardGenerator = GetComponentInChildren<BoardGenerator>();
-        if (!obstacleManager) obstacleManager = GetComponentInChildren<ObstacleManager>();
-        if (!player) player = FindAnyObjectByType<PlayerControllerGrid>();
+        if (boardGenerator) boardGenerator.BuildBoard(this);
+        if (obstacleManager) obstacleManager.BuildObstacles(this);
     }
 
-    private void Start()
-    {
-        boardGenerator.BuildBoard(this);
-        obstacleManager.BuildObstacles(this);
-        
-        if (player)
-        {
-            player.Init(this, startCell);
-        }
-    }
-
-    public bool InBounds(Vector2Int cell)
-    {
-        return cell.x >= 0 && cell.y >= 0 && cell.x < width && cell.y < height;
-    }
-
-    public Vector3 CellToWorld(Vector2Int cell)
-    {
-        return origin + new Vector3(cell.x * cellSize, 0f, cell.y * cellSize);
-    }
+    public Vector3 CellToWorld(Vector2Int c) => origin + new Vector3(c.x * cellSize + 0.5f * cellSize, 0f, c.y * cellSize + 0.5f * cellSize);
+    public bool InBounds(Vector2Int c) => c.x >= 0 && c.x < width && c.y >= 0 && c.y < height;
 }

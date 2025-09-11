@@ -3,24 +3,22 @@ using UnityEngine;
 
 public class ObstacleManager : MonoBehaviour
 {
-    public GameObject obstaclePrefab;
-    [Range(0, 200)] public int obstacleCount = 12;
-
+    public GameObject obstaclePrefab;                 
+    public int obstacleCount = 25;
     public Vector2Int minCell = new Vector2Int(0, 0);
-    public Vector2Int maxCell = new Vector2Int(14, 14); 
+    public Vector2Int maxCell = new Vector2Int(14, 14);
 
     public HashSet<Vector2Int> occupied = new HashSet<Vector2Int>();
 
     public void BuildObstacles(GameManager gm)
     {
-        foreach (Transform c in transform) DestroyImmediate(c.gameObject);
+        foreach (Transform c in transform) if (c != obstaclePrefab?.transform) DestroyImmediate(c.gameObject);
         occupied.Clear();
         occupied.Add(gm.startCell);
         occupied.Add(gm.goalCell);
 
-        int tries = obstacleCount * 20, placed = 0;
+        int placed = 0, tries = obstacleCount * 20;
         var rng = new System.Random();
-
         while (placed < obstacleCount && tries-- > 0)
         {
             int x = rng.Next(minCell.x, maxCell.x + 1);
@@ -29,8 +27,9 @@ public class ObstacleManager : MonoBehaviour
             if (occupied.Contains(cell)) continue;
 
             var go = Instantiate(obstaclePrefab, transform);
-            go.transform.position = gm.CellToWorld(cell) + Vector3.up * 0.5f;
+            go.transform.position = gm.CellToWorld(cell) + Vector3.up * 0.5f; 
             go.name = $"Obstacle_{x}_{y}";
+            go.SetActive(true);
 
             occupied.Add(cell);
             placed++;

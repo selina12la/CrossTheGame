@@ -1,70 +1,97 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class LadderLaneSpawner : MonoBehaviour
 {
-    public GameObject ladderPrefab;
-    public Transform surfaceRef;
+    [Header("Setup")]
+    public GameObject ladderPrefab;     
+    public Transform surfaceRef;        
+    
     public string ladderLayerName = "Ladder";
 
-    public float zPos = 30f;
-    public float xMin = -3f, xMax = 18f;
-    public float speed = 4f;
-    public float spawnInterval = 1.2f, spawnJitter = 0.4f;
-    public int prewarmCount = 2;
-    public float startDelay = 0f;
+    [Header("Lane")]
+    public float zPos = 27.7f;        
+    public float xMin = -5f, xMax = 20f;
     public bool leftToRight = true;
+    public float speed = 5f;
 
-    float t;
+    [Header("Ladder Variety")]
+    public float minLength = 1.8f;
+    public float maxLength = 3.2f;
+    public float minGap    = 0.15f;
+    public float maxGap    = 0.45f;
 
-    void Start()
+    [Header("Population")]
+    public int   prewarmCount = 3;
+    public int   maxAlive     = 6;
+    public float startDelay   = 0f;
+
+    readonly List<GameObject> alive = new();
+    float timer;
+
+    void OnEnable()
     {
-        t = startDelay <= 0f ? 0f : startDelay;
-        float topY = GetSurfaceTopY(surfaceRef);
-        float laneLen = Mathf.Abs(xMax - xMin);
-        float travelTime = laneLen / Mathf.Max(0.01f, speed);
-        int n = Mathf.Max(0, prewarmCount);
-        for (int i = 0; i < n; i++)
+        if (!ladderPrefab || ladderPrefab.scene.IsValid())
+        { Debug.LogError($"{name}: ladderPrefab fehlt oder ist Scene-Objekt."); enabled = false; return; }
+        if (!surfaceRef)
+        { Debug.LogError($"{name}: surfaceRef fehlt."); enabled = false; return; }
+
+        timer = startDelay;
+
+        float topY = GetTopY(surfaceRef);
+        for (int i = 0; i < prewarmCount; i++)
         {
-            float frac = (i + 1f) / (n + 1f);
-            float x = Mathf.Lerp(leftToRight ? xMin : xMax, leftToRight ? xMax : xMin, frac);
-            SpawnAt(x, topY);
+            float f = (i + 1f) / (prewarmCount + 1f);
+            float x = Mathf.Lerp(leftToRight ? xMin : xMax, leftToRight ? xMax : xMin, f);
+            SpawnAt(x, topY, RandomLength());
         }
     }
 
     void Update()
     {
-        t -= Time.deltaTime;
-        if (t <= 0f)
+        CleanupDead();
+        timer -= Time.deltaTime;
+        if (timer <= 0f && alive.Count < maxAlive)
         {
-            float topY = GetSurfaceTopY(surfaceRef);
-            SpawnAt(leftToRight ? xMin : xMax, topY);
-            t = Mathf.Max(0.2f, spawnInterval + Random.Range(-spawnJitter, spawnJitter));
+            float len = RandomLength();
+            float gap = Random.Range(minGap, maxGap);
+            float nextDelay = (len + gap) / Mathf.Max(0.01f, speed);
+
+            SpawnAt(leftToRight ? xMin : xMax, GetTopY(surfaceRef), len);
+            timer = Mathf.Max(0.15f, nextDelay);
         }
     }
 
-    void SpawnAt(float x, float topY)
+    void SpawnAt(float x, float topY, float length)
     {
-        if (!ladderPrefab) return;
         var go = Instantiate(ladderPrefab);
         go.layer = LayerMask.NameToLayer(ladderLayerName);
+        go.transform.position = new Vector3(x, topY, zPos);
 
-        var lp = go.GetComponent<LadderPlatform>();
-        float rootY = topY;
-        go.transform.position = new Vector3(x, rootY, zPos);
+        var plat = go.GetComponent<LadderPlatform>();
+        if (plat) plat.size = new Vector3(length, plat.size.y, Mathf.Max(plat.size.z, 1.0f)); // Tiefe ≥ 1.0
 
-        var mover = go.GetComponent<LadderMover>();
-        if (!mover) mover = go.AddComponent<LadderMover>();
+        var mover = go.GetComponent<LadderMover>() ?? go.AddComponent<LadderMover>();
         mover.speed = speed * (leftToRight ? 1f : -1f);
-        mover.xMin = xMin - 2f;
-        mover.xMax = xMax + 2f;
+        mover.xMin  = Mathf.Min(xMin, xMax) - 2f;
+        mover.xMax  = Mathf.Max(xMin, xMax) + 2f;
+
+        alive.Add(go);
     }
 
-    float GetSurfaceTopY(Transform surface)
+    float RandomLength() => Random.Range(minLength, maxLength);
+
+    void CleanupDead()
     {
-        if (!surface) return 0f;
-        float top = surface.position.y;
-        foreach (var r in surface.GetComponentsInChildren<Renderer>()) top = Mathf.Max(top, r.bounds.max.y);
-        foreach (var c in surface.GetComponentsInChildren<Collider>()) top = Mathf.Max(top, c.bounds.max.y);
+        for (int i = alive.Count - 1; i >= 0; i--)
+            if (!alive[i]) alive.RemoveAt(i);
+    }
+
+    float GetTopY(Transform t)
+    {
+        float top = t.position.y;
+        foreach (var r in t.GetComponentsInChildren<Renderer>()) top = Mathf.Max(top, r.bounds.max.y);
+        foreach (var c in t.GetComponentsInChildren<Collider>()) top = Mathf.Max(top, c.bounds.max.y);
         return top;
     }
 }
