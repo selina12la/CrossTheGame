@@ -213,7 +213,12 @@ public class FigureControl : MonoBehaviour
         if (lockRotation) transform.rotation = initialRot;
     }
 
-    public void Hit() => ResetToStart();
+    public void Hit()
+    {
+        GameSession.LoseLife();     
+        isMoving = false;
+        ResetToStart();
+    }
 
     void SnapToCell(Vector2Int cell)
     {
