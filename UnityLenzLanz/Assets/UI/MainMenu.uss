@@ -1,0 +1,93 @@
+/* Vollbild-Hintergrund */
+#Root {
+    width: 100%;
+    height: 100%;
+    justify-content: center;   /* Inhalt zentriert */
+    align-items: center;
+    background-color: rgba(20, 20, 24, 0.9);
+    padding-top: 24px;         /* Titel etwas nach unten */
+}
+
+/* Zentrale Karte */
+#Card {
+    width: 420px;
+    padding: 24px;
+    flex-direction: column;
+    align-items: center;
+    border-radius: 14px;
+    background-color: #1f232b;
+    border-width: 2px;
+    border-color: #2e3440;
+}
+
+/* Titel in der Karte (Label hat die Class "title") */
+.title {
+    -unity-font-style: bold;
+    font-size: 80px;
+    color: #eceff4;
+    margin-bottom: 8px;        /* feiner Abstand zum ersten Button */
+}
+
+/* Buttons (alle) – Theme-Background aus, damit Farben sichtbar sind */
+button {
+    height: 46px;
+    width: 240px;
+    border-radius: 20px;
+    background-image: none;             /* wichtig für eigene Farben */
+    -unity-text-align: middle-center;
+    font-size: 18px;
+    color: #fff;
+    transition: background-color 0.2s ease;
+}
+
+/* Start */
+#btnStart { background-color: #7b8641; }
+#btnStart:hover  { background-color: #606833; }
+#btnStart:active { background-color: #929e4e; }
+
+/* Anleitung */
+#btnHowTo { background-color: #d19f5a; }
+#btnHowTo:hover  { background-color: #a57b3f; }
+#btnHowTo:active { background-color: #f4b862; }
+
+/* Quit */
+#btnQuit { background-color: #995e2e; }
+#btnQuit:hover  { background-color: #5e3f1e; }
+#btnQuit:active { background-color: #df8844; }
+
+#btnBack { background-color: #995e2e; }
+#btnBack:hover  { background-color: #5e3f1e; }
+#btnBack:active { background-color: #df8844; }
+
+/* Anleitung-Overlay (unsichtbar zu Beginn) */
+#HowToOverlay {
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.55);
+    display: none;
+}
+
+/* Karte im Overlay */
+#HowToCard {
+    width: 520px;
+    padding: 20px;
+    flex-direction: column;
+    border-radius: 12px;
+    background-color: #1f232b;
+    border-width: 2px;
+    border-color: #2e3440;
+}
+
+/* Texte im Overlay (Labels haben die Klassen htTitle / htBody) */
+.htTitle {
+    -unity-font-style: bold;
+    font-size: 22px;
+    color: #e5e9f0;
+}
+.htBody {
+    color: #cfd6e3;
+    font-size: 16px;
+    white-space: normal;
+}

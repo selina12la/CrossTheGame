@@ -28,6 +28,8 @@ public class FigureControl : MonoBehaviour
     [SerializeField] bool lockRotation = true;
     [SerializeField] GameManager gameManager;
 
+    public bool IsMoving { get; private set; }
+
     FigureInputAction ia;
     InputAction moveAction;
     Collider selfCol;
@@ -39,16 +41,26 @@ public class FigureControl : MonoBehaviour
     {
         ia = new FigureInputAction(); ia.Enable();
         moveAction = ia.Figure.Move;
+
         selfCol = GetComponent<Collider>();
         if (!gameManager) gameManager = FindAnyObjectByType<GameManager>();
         if (gameManager) stepSize = gameManager.cellSize;
+
         initialRot = transform.rotation;
     }
 
     void Start()
     {
-        if (gameManager) { cellPos = placeOnStart ? gameManager.startCell : WorldToCell(transform.position); SnapToCell(cellPos); }
-        else             { float gy = GroundYAt(transform.position); transform.position = new Vector3(transform.position.x, gy, transform.position.z); }
+        if (gameManager)
+        {
+            cellPos = placeOnStart ? gameManager.startCell : WorldToCell(transform.position);
+            SnapToCell(cellPos);
+        }
+        else
+        {
+            float gy = GroundYAt(transform.position);
+            transform.position = new Vector3(transform.position.x, gy, transform.position.z);
+        }
     }
 
     void Update()
@@ -77,6 +89,7 @@ public class FigureControl : MonoBehaviour
     void TryStep(Vector2Int dir)
     {
         Vector3 end; Vector2Int targetCell;
+
         if (gameManager)
         {
             targetCell = cellPos + dir;
@@ -87,27 +100,33 @@ public class FigureControl : MonoBehaviour
         }
         else
         {
-            Vector3 flat = transform.position + new Vector3(dir.x,0f,dir.y)*stepSize;
+            Vector3 flat = transform.position + new Vector3(dir.x, 0f, dir.y) * stepSize;
             float gy = GroundYAt(flat);
             end = new Vector3(flat.x, gy, flat.z);
             targetCell = WorldToCell(end);
         }
 
         if (IsBlockedAt(end)) return;
+
         StartCoroutine(HopTo(targetCell, end));
     }
 
     IEnumerator HopTo(Vector2Int targetCell, Vector3 end)
     {
-        isMoving = true;
-        Vector3 start = transform.position; float t = 0f;
+        isMoving = true; IsMoving = true;
+        transform.SetParent(null, true);
+
+        Vector3 start = transform.position;
+        float t = 0f;
 
         while (t < 1f)
         {
             t += Time.deltaTime / moveDuration;
             float y = Mathf.Sin(t * Mathf.PI) * jumpHeight;
             Vector3 next = Vector3.Lerp(start, end, t) + Vector3.up * y;
+
             if (IsBlockedAt(next)) { Hit(); yield break; }
+
             transform.position = next;
             if (lockRotation) transform.rotation = initialRot;
             yield return null;
@@ -117,38 +136,49 @@ public class FigureControl : MonoBehaviour
 
         cellPos = targetCell;
         transform.position = end;
-        isMoving = false;
+        isMoving = false; IsMoving = false;
     }
 
     IEnumerator HopToWorld(Vector3 end)
     {
-        isMoving = true;
-        Vector3 start = transform.position; float t = 0f;
+        isMoving = true; IsMoving = true;
+        transform.SetParent(null, true);
+
+        Vector3 start = transform.position;
+        float t = 0f;
 
         while (t < 1f)
         {
             t += Time.deltaTime / moveDuration;
             float y = Mathf.Sin(t * Mathf.PI) * jumpHeight;
             Vector3 next = Vector3.Lerp(start, end, t) + Vector3.up * y;
+
             if (IsBlockedAt(next)) { Hit(); yield break; }
+
             transform.position = next;
             if (lockRotation) transform.rotation = initialRot;
             yield return null;
         }
 
         if (InRiver(end) && !OnLadderAt(end)) { Hit(); yield break; }
-        transform.position = end; isMoving = false;
+
+        transform.position = end;
+        isMoving = false; IsMoving = false;
     }
 
     bool IsBlockedAt(Vector3 worldPos)
     {
         Bounds b = selfCol.bounds;
         Vector3 half = b.extents - Vector3.one * checkPadding;
-        half.x = Mathf.Max(0.01f, half.x); half.y = Mathf.Max(0.01f, half.y); half.z = Mathf.Max(0.01f, half.z);
+        half.x = Mathf.Max(0.01f, half.x);
+        half.y = Mathf.Max(0.01f, half.y);
+        half.z = Mathf.Max(0.01f, half.z);
+
         float hh = b.extents.y;
         Vector3 center = new Vector3(worldPos.x, worldPos.y + hh, worldPos.z);
+
         var hits = Physics.OverlapBox(center, half, Quaternion.identity, obstacleMask, QueryTriggerInteraction.Ignore);
-        for (int i=0;i<hits.Length;i++) if (hits[i] && hits[i]!=selfCol) return true;
+        for (int i = 0; i < hits.Length; i++) if (hits[i] && hits[i] != selfCol) return true;
         return false;
     }
 
@@ -161,11 +191,15 @@ public class FigureControl : MonoBehaviour
 
     bool OnLadderAt(Vector3 worldPos)
     {
-        float checkHeight = 0.35f;
+        float checkHeight = 0.35f;                   // etwas über deiner Ladder-Höhe (0.3)
         float centerY = worldPos.y + checkHeight * 0.5f;
+
         Bounds b = selfCol.bounds;
         Vector3 half = b.extents - Vector3.one * checkPadding;
-        half.x = Mathf.Max(0.05f, half.x); half.y = checkHeight * 0.5f; half.z = Mathf.Max(0.05f, half.z);
+        half.x = Mathf.Max(0.05f, half.x);
+        half.y = checkHeight * 0.5f;                 // flacher Boden-Check
+        half.z = Mathf.Max(0.05f, half.z);
+
         Vector3 center = new Vector3(worldPos.x, centerY, worldPos.z);
         var hits = Physics.OverlapBox(center, half, Quaternion.identity, ladderMask, QueryTriggerInteraction.Collide);
         return hits != null && hits.Length > 0;
@@ -173,7 +207,7 @@ public class FigureControl : MonoBehaviour
 
     public void ResetToStart()
     {
-        isMoving = false;
+        isMoving = false; IsMoving = false;
         if (gameManager) { cellPos = gameManager.startCell; SnapToCell(cellPos); }
         else             { float gy = GroundYAt(Vector3.zero); transform.position = new Vector3(0f, gy, 0f); }
         if (lockRotation) transform.rotation = initialRot;
@@ -192,8 +226,10 @@ public class FigureControl : MonoBehaviour
     {
         Vector3 local = worldPos - gameManager.origin;
         float s = Mathf.Max(0.0001f, gameManager.cellSize);
-        int x = Mathf.RoundToInt(local.x / s), y = Mathf.RoundToInt(local.z / s);
-        x = Mathf.Clamp(x, 0, gameManager.width - 1); y = Mathf.Clamp(y, 0, gameManager.height - 1);
+        int x = Mathf.RoundToInt(local.x / s);
+        int y = Mathf.RoundToInt(local.z / s);
+        x = Mathf.Clamp(x, 0, gameManager.width - 1);
+        y = Mathf.Clamp(y, 0, gameManager.height - 1);
         return new Vector2Int(x, y);
     }
 
@@ -202,7 +238,11 @@ public class FigureControl : MonoBehaviour
         Vector3 from = new Vector3(xz.x, groundRayHeight, xz.z);
         var hits = Physics.RaycastAll(from, Vector3.down, groundRayHeight * 2f, groundMask, QueryTriggerInteraction.Ignore);
         float best = float.NegativeInfinity;
-        for (int i=0;i<hits.Length;i++){ if (hits[i].collider==selfCol) continue; if (hits[i].point.y>best) best=hits[i].point.y; }
-        return (best==float.NegativeInfinity) ? 0f : best;
+        for (int i = 0; i < hits.Length; i++)
+        {
+            if (hits[i].collider == selfCol) continue;
+            if (hits[i].point.y > best) best = hits[i].point.y;
+        }
+        return (best == float.NegativeInfinity) ? 0f : best;
     }
 }
