@@ -2,18 +2,14 @@ using UnityEngine;
 
 public class BoardGenerator : MonoBehaviour
 {
-    [Header("Scene template (disabled Cube)")]
     public GameObject tilePrefab;
 
-    [Header("Materials")]
     public Material lightMat;
     public Material darkMat;
 
-    [Header("Board size (fixed chess area)")]
     public int boardWidth  = 15;
     public int boardHeight = 15;
 
-    [ContextMenu("Build From GameManager")]
     public void BuildFromGameManager()
     {
         var gm = FindAnyObjectByType<GameManager>();

@@ -28,7 +28,6 @@ public class MainMenuUITK : MonoBehaviour
 
         if (howToOverlay != null) howToOverlay.style.display = DisplayStyle.None;
 
-        // Optional: ESC in UI Toolkit selbst abfangen
         root.RegisterCallback<KeyDownEvent>(e =>
         {
             if (howToOverlay != null && howToOverlay.resolvedStyle.display != DisplayStyle.None &&
@@ -42,7 +41,6 @@ public class MainMenuUITK : MonoBehaviour
 
     void Update()
     {
-        // **NEUES INPUT SYSTEM**
         if (howToOverlay != null && howToOverlay.resolvedStyle.display != DisplayStyle.None)
         {
             var kb = Keyboard.current;

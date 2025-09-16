@@ -4,26 +4,25 @@ using UnityEngine;
 [RequireComponent(typeof(Collider))]
 public class PlayerControllerGrid : MonoBehaviour
 {
-    [Header("Move Settings")]
     public float moveDuration = 0.12f;
     public float hopHeight = 0.35f;
 
-    private GameManager gm;
-    private ObstacleManager obstacles;
-    private Vector2Int cellPos;
-    private bool isMoving = false;
+    private GameManager _gm;
+    private ObstacleManager _obstacles;
+    private Vector2Int _cellPos;
+    private bool _isMoving = false;
 
     public void Init(GameManager manager, Vector2Int startCell)
     {
-        gm = manager;
-        obstacles = gm.obstacleManager;
-        cellPos = startCell;
-        transform.position = gm.CellToWorld(cellPos) + Vector3.up * 0.5f;
+        _gm = manager;
+        _obstacles = _gm.obstacleManager;
+        _cellPos = startCell;
+        transform.position = _gm.CellToWorld(_cellPos) + Vector3.up * 0.5f;
     }
 
     private void Update()
     {
-        if (gm == null || isMoving) return;
+        if (_gm == null || _isMoving) return;
 
         Vector2Int dir = Vector2Int.zero;
 
@@ -40,21 +39,21 @@ public class PlayerControllerGrid : MonoBehaviour
 
     private void TryStep(Vector2Int dir)
     {
-        Vector2Int target = cellPos + dir;
+        Vector2Int target = _cellPos + dir;
 
-        if (!gm.InBounds(target)) return;
+        if (!_gm.InBounds(target)) return;
 
-        if (obstacles != null && obstacles.IsBlocked(target)) return;
+        if (_obstacles != null && _obstacles.IsBlocked(target)) return;
 
         StartCoroutine(HopTo(target));
     }
 
     private IEnumerator HopTo(Vector2Int targetCell)
     {
-        isMoving = true;
+        _isMoving = true;
 
         Vector3 start = transform.position;
-        Vector3 end = gm.CellToWorld(targetCell) + Vector3.up * 0.5f;
+        Vector3 end = _gm.CellToWorld(targetCell) + Vector3.up * 0.5f;
 
         float t = 0f;
         while (t < 1f)
@@ -66,11 +65,11 @@ public class PlayerControllerGrid : MonoBehaviour
             yield return null;
         }
 
-        cellPos = targetCell;
+        _cellPos = targetCell;
         transform.position = end;
-        isMoving = false;
+        _isMoving = false;
         
-        if (cellPos == gm.goalCell)
+        if (_cellPos == _gm.goalCell)
         {
             Debug.Log("Ziel erreicht! 🎉");
         }

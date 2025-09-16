@@ -2,24 +2,20 @@ using UnityEngine;
 
 public class StoneLaneSpawner : MonoBehaviour
 {
-    [Header("Prefab & Surface")]
+  
     public GameObject stonePrefab;
-    public Transform surfaceRef;          // dein Backgammon-Board (oder die Lane-Basis)
-    public float surfaceOffset = 0f;      // optionaler Zusatz-Offset
-
-    [Header("Lane")]
+    public Transform surfaceRef;        
+    public float surfaceOffset = 0f;      
+   
     public float zPos = 32f;
     public float xMin = -3f, xMax = 17f;
     public bool leftToRight = true;
 
-    [Header("Movement")]
     public float speed = 6f;
 
-    [Header("Spawn")]
     public float spawnInterval = 1.2f;
     public float spawnJitter   = 0.4f;
 
-    [Header("Layers")]
     public string obstacleLayerName = "Obstacle";
 
     float timer;
@@ -42,30 +38,26 @@ public class StoneLaneSpawner : MonoBehaviour
         float xStart = leftToRight ? xMin : xMax;
         GameObject go = Instantiate(stonePrefab);
 
-        // 1) Sicherstellen: Layer = Obstacle (rekursiv)
         SetLayerRecursive(go, obstacleLayerName);
 
-        // 2) Alle Collider als feste Kollision konfigurieren
         var cols = go.GetComponentsInChildren<Collider>(true);
         if (cols != null && cols.Length > 0)
         {
             for (int i = 0; i < cols.Length; i++)
-                cols[i].isTrigger = false;
+                cols[i].isTrigger = true;
         }
         else
         {
-            // Fallback: notfalls BoxCollider am Root hinzufügen
             var r = go.GetComponentInChildren<Renderer>();
             var bc = go.AddComponent<BoxCollider>();
             float h = r ? r.bounds.size.y : 1f;
             bc.center = new Vector3(0f, h * 0.5f, 0f);
             bc.size   = new Vector3(1f, h, 1f);
+            bc.isTrigger = true;
         }
 
-        // 3) Y-Position robust auf die Oberkante der Oberfläche setzen
         float topY = GetSurfaceTopY(surfaceRef) + surfaceOffset;
 
-        // Versuche, die halbe Höhe des Steins zu nehmen (für bündiges Aufsetzen)
         float halfH = 0.5f;
         {
             float best = 0f;
@@ -78,14 +70,12 @@ public class StoneLaneSpawner : MonoBehaviour
 
         go.transform.position = new Vector3(xStart, topY + halfH, zPos);
 
-        // 4) Mover sicherstellen & konfigurieren
         var mover = go.GetComponent<StoneMover>();
         if (!mover) mover = go.AddComponent<StoneMover>();
         mover.speed = speed * (leftToRight ? 1f : -1f);
         mover.xMin  = Mathf.Min(xMin, xMax) - 2f;
         mover.xMax  = Mathf.Max(xMin, xMax) + 2f;
 
-        // 5) Optional: Rigidbody für saubere Kollisionen (nicht nötig für FigureControl-Checks, aber nice-to-have)
         var rb = go.GetComponentInChildren<Rigidbody>();
         if (!rb)
         {
@@ -94,6 +84,9 @@ public class StoneLaneSpawner : MonoBehaviour
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         }
+
+        if (!go.GetComponent<StoneHazard>())
+            go.AddComponent<StoneHazard>();
     }
 
     static void SetLayerRecursive(GameObject root, string layerName)

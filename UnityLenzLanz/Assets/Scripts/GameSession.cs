@@ -1,50 +1,47 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using System;
 
 public class GameSession : MonoBehaviour
 {
     public static GameSession I { get; private set; }
 
-    [Header("Config")]
+    public static event Action<int> OnLivesChanged;
+    public static event Action<int> OnScoreChanged;
+
     [SerializeField] int startLives = 3;
-    [SerializeField] string mainMenuScene = "MainMenu";
-
     public int Lives { get; private set; }
-
-    public static System.Action<int> OnLivesChanged; 
+    public int Score { get; private set; }
 
     void Awake()
     {
-        if (I != null) { Destroy(gameObject); return; }
+        if (I != null && I != this) { Destroy(gameObject); return; }
         I = this;
         DontDestroyOnLoad(gameObject);
+
         Lives = startLives;
+        Score = 0;
     }
 
-    public static void LoseLife()
+    public static void ResetSession(int lives)
     {
         if (I == null) return;
-        I.Lives = Mathf.Max(0, I.Lives - 1);
+        I.Lives = lives;
+        I.Score = 0;
         OnLivesChanged?.Invoke(I.Lives);
-
-        if (I.Lives > 0)
-        {
-            var s = SceneManager.GetActiveScene().buildIndex;
-            SceneManager.LoadScene(s);
-        }
-        else
-        {
-            
-            I.Lives = I.startLives;
-            OnLivesChanged?.Invoke(I.Lives);
-            SceneManager.LoadScene(I.mainMenuScene);
-        }
+        OnScoreChanged?.Invoke(I.Score);
     }
 
-    public static void ResetLives() 
+    public static void AddScore(int amount)
     {
         if (I == null) return;
-        I.Lives = I.startLives;
+        I.Score += amount;
+        OnScoreChanged?.Invoke(I.Score);
+    }
+
+    public static void LoseLife(int amount = 1)
+    {
+        if (I == null) return;
+        I.Lives = Mathf.Max(0, I.Lives - amount);
         OnLivesChanged?.Invoke(I.Lives);
     }
 }

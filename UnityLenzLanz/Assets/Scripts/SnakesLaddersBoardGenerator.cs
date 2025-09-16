@@ -34,7 +34,7 @@ public class SnakesLaddersBoardGenerator : MonoBehaviour
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
             mat.color = ((c+r)&1)==0 ? a : b;
             tile.GetComponent<Renderer>().sharedMaterial = mat;
-            DestroyImmediate(tile.GetComponent<Collider>()); // nur optisch
+            DestroyImmediate(tile.GetComponent<Collider>()); 
         }
     }
 }

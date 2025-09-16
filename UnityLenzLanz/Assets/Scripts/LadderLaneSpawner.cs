@@ -3,25 +3,21 @@ using UnityEngine;
 
 public class LadderLaneSpawner : MonoBehaviour
 {
-    [Header("Setup")]
     public GameObject ladderPrefab;     
     public Transform surfaceRef;        
     
     public string ladderLayerName = "Ladder";
 
-    [Header("Lane")]
     public float zPos = 27.7f;        
     public float xMin = -5f, xMax = 20f;
     public bool leftToRight = true;
     public float speed = 5f;
 
-    [Header("Ladder Variety")]
     public float minLength = 1.8f;
     public float maxLength = 3.2f;
     public float minGap    = 0.15f;
     public float maxGap    = 0.45f;
 
-    [Header("Population")]
     public int   prewarmCount = 3;
     public int   maxAlive     = 6;
     public float startDelay   = 0f;
