@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using UnityEngine.SceneManagement;
 
 public class GameSession : MonoBehaviour
 {
@@ -14,10 +15,14 @@ public class GameSession : MonoBehaviour
 
     void Awake()
     {
-        if (I != null && I != this) { Destroy(gameObject); return; }
+        if (I != null && I != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         I = this;
         DontDestroyOnLoad(gameObject);
-
         Lives = startLives;
         Score = 0;
     }
@@ -43,5 +48,36 @@ public class GameSession : MonoBehaviour
         if (I == null) return;
         I.Lives = Mathf.Max(0, I.Lives - amount);
         OnLivesChanged?.Invoke(I.Lives);
+        if (I.Lives <= 0)
+        {
+            I.LoadGameOver();
+            return;
+        }
+
+        I.RestartCurrent();
+    }
+
+    public void RestartCurrent()
+    {
+        var idx = SceneManager.GetActiveScene().buildIndex;
+        SceneManager.LoadScene(idx);
+    }
+
+    public void NextLevel()
+    {
+        SceneManager.LoadScene("GameScene");
+    }
+
+    public void LoadMenu() => SceneManager.LoadScene("MainMenu");
+    public void LoadGame() => SceneManager.LoadScene("GameScene");
+    public void LoadGameOver() => SceneManager.LoadScene("GameOver");
+
+    public void StartNewRun()
+    {
+        Lives = startLives;
+        Score = 0;
+        OnLivesChanged?.Invoke(Lives);
+        OnScoreChanged?.Invoke(Score);
+        LoadGame();
     }
 }

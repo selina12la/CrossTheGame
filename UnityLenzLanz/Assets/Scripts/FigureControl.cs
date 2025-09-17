@@ -10,21 +10,17 @@ public class FigureControl : MonoBehaviour
     [SerializeField] float jumpHeight = 0.45f;
 
     [SerializeField] float repeatDelay = 0.22f;
-
-    [SerializeField] float repeatRate = 0.08f;
+    [SerializeField] float repeatRate  = 0.08f;
 
     [SerializeField] LayerMask groundMask;
     [SerializeField] float groundSnap = 0.02f;
     [SerializeField] float groundRayHeight = 5f;
 
     [SerializeField] LayerMask obstacleMask;
-    [SerializeField] float checkPadding = 0.05f;
-
     [SerializeField] LayerMask collectibleMask;
-    [SerializeField] GameManager gameManager;
 
+    [SerializeField] GameManager gameManager;
     [SerializeField] bool placeOnStart = true;
-    [SerializeField] bool lockRotation = true;
 
     public bool IsMoving => isMoving;
     public void ResetToStart() => DoResetToStart();
@@ -34,58 +30,91 @@ public class FigureControl : MonoBehaviour
     Collider selfCol;
 
     bool isMoving;
-    Quaternion initialRot;
     Vector2 lastHeldDir;
     float holdTimer, repeatTimer;
 
     Vector3 startWorld;
     Vector2Int startCell;
 
+    float worldXMin, worldXMax, worldZMin, worldZMax, resetMargin;
+
     void Awake()
     {
         ia = new FigureInputAction();
-        moveAction = ia.Figure.Move;
+        moveAction  = ia.Figure.Move;
         resetAction = ia.Figure.Reset;
-
         selfCol = GetComponent<Collider>();
-        initialRot = transform.rotation;
-
         if (!gameManager) gameManager = FindAnyObjectByType<GameManager>();
     }
 
-    void OnEnable() => ia.Enable();
+    void OnEnable()  => ia.Enable();
     void OnDisable() => ia.Disable();
 
     void Start()
     {
-        if (gameManager && placeOnStart)
+        if (gameManager)
         {
-            startCell = gameManager.startCell;
-            startWorld = Grounded(gameManager.CellToWorld(startCell));
-            transform.position = startWorld;
+            float s = Mathf.Max(0.0001f, gameManager.cellSize);
+            Vector3 o = gameManager.origin;
+            worldXMin = o.x + 0.5f * s;
+            worldXMax = o.x + (gameManager.width  - 0.5f) * s;
+            worldZMin = o.z - 0.5f * s;
+            worldZMax = o.z + (gameManager.height - 0.5f) * s;
+            resetMargin = 0.05f * s;
+
+            if (placeOnStart)
+            {
+                startCell  = gameManager.startCell;
+                startWorld = Grounded(gameManager.CellToWorld(startCell));
+                transform.position = startWorld;
+            }
+            else
+            {
+                startWorld = Grounded(transform.position);
+                transform.position = startWorld;
+            }
         }
         else
         {
             startWorld = Grounded(transform.position);
             transform.position = startWorld;
+            worldXMin = worldXMax = worldZMin = worldZMax = float.NaN;
+            resetMargin = 0.1f;
         }
     }
 
     void Update()
     {
-        if (lockRotation) transform.rotation = initialRot;
+        if (!float.IsNaN(worldXMin))
+        {
+            Vector3 p = transform.position;
+            bool off =
+                p.x < worldXMin - resetMargin ||
+                p.x > worldXMax + resetMargin ||
+                p.z < worldZMin - resetMargin ||
+                p.z > worldZMax - resetMargin;     
+            if (off)
+            {
+                GameSession.LoseLife();
+                DoResetToStart();
+                return;
+            }
+        }
+
         if (isMoving) return;
 
         Vector2 dir = moveAction.ReadValue<Vector2>();
         if (dir != Vector2.zero)
         {
-            dir = SnapToCardinal(dir);
+            dir = Mathf.Abs(dir.x) > Mathf.Abs(dir.y)
+                ? new Vector2(Mathf.Sign(dir.x), 0f)
+                : new Vector2(0f, Mathf.Sign(dir.y));
+
             if (dir != lastHeldDir)
             {
                 lastHeldDir = dir;
-                holdTimer = 0f;
-                repeatTimer = 0f;
-                TryStep(dir);
+                holdTimer = 0f; repeatTimer = 0f;
+                Step(dir);
             }
             else
             {
@@ -95,7 +124,7 @@ public class FigureControl : MonoBehaviour
                     repeatTimer += Time.deltaTime;
                     while (repeatTimer >= repeatRate)
                     {
-                        TryStep(dir);
+                        Step(dir);
                         repeatTimer -= repeatRate;
                     }
                 }
@@ -110,38 +139,45 @@ public class FigureControl : MonoBehaviour
         if (resetAction.triggered) DoResetToStart();
     }
 
-    void TryStep(Vector2 dir)
+    void DoResetToStart()
     {
-        Vector3 worldDir = new Vector3(dir.x, 0f, dir.y);
-        Vector3 start = transform.position;
-        Vector3 end = start + worldDir * stepSize;
+        StopAllCoroutines();
+        isMoving = false;
 
-        if (!Physics.Raycast(end + Vector3.up * groundRayHeight, Vector3.down,
-                out var hit, groundRayHeight * 2f, groundMask, QueryTriggerInteraction.Collide))
-            return;
-
-        end.y = hit.point.y + groundSnap;
-        if (IsBlockedAt(end)) return;
-
-        StartCoroutine(HopTo(start, end));
+        if (gameManager)
+        {
+            Vector3 t = Grounded(gameManager.CellToWorld(startCell));
+            transform.position = t;
+        }
+        else
+        {
+            transform.position = startWorld;
+        }
     }
 
-    bool IsBlockedAt(Vector3 worldPos)
+    void Step(Vector2 dir)
     {
-        if (obstacleMask.value == 0) return false;
-        Bounds b = selfCol.bounds;
-        Vector3 center = new Vector3(worldPos.x, b.center.y, worldPos.z);
-        Vector3 half = b.extents - Vector3.one * checkPadding;
-        half.x = Mathf.Max(0.01f, half.x);
-        half.y = Mathf.Max(0.01f, half.y);
-        half.z = Mathf.Max(0.01f, half.z);
+        Vector3 start = transform.position;
+        Vector3 end = start + new Vector3(dir.x, 0f, dir.y) * stepSize;
 
-        var hits = Physics.OverlapBox(center, half, Quaternion.identity,
-            obstacleMask, QueryTriggerInteraction.Ignore);
-        for (int i = 0; i < hits.Length; i++)
-            if (hits[i] && hits[i] != selfCol)
-                return true;
-        return false;
+        if (!float.IsNaN(worldXMin))
+        {
+            if (end.x < worldXMin || end.x > worldXMax || end.z < worldZMin || end.z > worldZMax)
+            {
+                GameSession.LoseLife();
+                DoResetToStart();
+                return;
+            }
+        }
+
+        if (Physics.CheckBox(end, Vector3.one * 0.45f, Quaternion.identity, obstacleMask, QueryTriggerInteraction.Ignore))
+            return;
+
+        if (Physics.Raycast(end + Vector3.up * groundRayHeight, Vector3.down, out var hit, groundRayHeight * 2f, groundMask, QueryTriggerInteraction.Collide))
+        {
+            end.y = hit.point.y + groundSnap;
+            StartCoroutine(HopTo(start, end));
+        }
     }
 
     IEnumerator HopTo(Vector3 start, Vector3 end)
@@ -156,61 +192,31 @@ public class FigureControl : MonoBehaviour
             transform.position = Vector3.Lerp(start, end, k) + Vector3.up * h;
             yield return null;
         }
-
         transform.position = end;
-        if (lockRotation) transform.rotation = initialRot;
         isMoving = false;
-
         CollectAt(end);
     }
 
     void CollectAt(Vector3 worldPos)
     {
-        if (!selfCol || collectibleMask.value == 0) return;
+        if (!selfCol) selfCol = GetComponent<Collider>();
         Bounds b = selfCol.bounds;
         Vector3 center = new Vector3(worldPos.x, b.center.y, worldPos.z);
         Vector3 half = b.extents;
-
-        var hits = Physics.OverlapBox(center, half, Quaternion.identity,
-            collectibleMask, QueryTriggerInteraction.Collide);
+        var hits = Physics.OverlapBox(center, half, Quaternion.identity, collectibleMask, QueryTriggerInteraction.Collide);
         for (int i = 0; i < hits.Length; i++)
         {
             if (!hits[i]) continue;
             var dc = hits[i].GetComponentInParent<DiceCollectible>();
-            if (dc)
-            {
-                GameSession.AddScore(dc.value);
-                Destroy(dc.gameObject);
-            }
-            else
-            {
-                GameSession.AddScore(1);
-                Destroy(hits[i].gameObject);
-            }
+            if (dc) { GameSession.AddScore(dc.value); Destroy(dc.gameObject); }
+            else    { GameSession.AddScore(1);        Destroy(hits[i].gameObject); }
         }
-    }
-
-    void DoResetToStart()
-    {
-        StopAllCoroutines();
-        isMoving = false;
-        if (gameManager)
-            transform.position = Grounded(gameManager.CellToWorld(startCell));
-        else
-            transform.position = startWorld;
-    }
-
-    Vector2 SnapToCardinal(Vector2 v)
-    {
-        if (Mathf.Abs(v.x) > Mathf.Abs(v.y)) return new Vector2(Mathf.Sign(v.x), 0f);
-        else return new Vector2(0f, Mathf.Sign(v.y));
     }
 
     Vector3 Grounded(Vector3 xz)
     {
         Vector3 from = xz + Vector3.up * groundRayHeight;
-        if (Physics.Raycast(from, Vector3.down, out var hit,
-                groundRayHeight * 2f, groundMask, QueryTriggerInteraction.Collide))
+        if (Physics.Raycast(from, Vector3.down, out var hit, groundRayHeight * 2f, groundMask, QueryTriggerInteraction.Collide))
             return new Vector3(xz.x, hit.point.y + groundSnap, xz.z);
         return xz;
     }
