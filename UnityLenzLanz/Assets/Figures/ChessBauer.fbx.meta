@@ -3,7 +3,12 @@ guid: 94cdf9e110275c747aaa8b9dc5ed81c2
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Marble look ceramic tiles -Statuario
+    second: {fileID: 2100000, guid: fe4bef7a1fb6b8240ac0b6c5114675da, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

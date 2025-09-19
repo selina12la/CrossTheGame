@@ -561,7 +561,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSession
   startLives: 3
-  mainMenuScene: MainMenu
 --- !u!4 &2008778709
 Transform:
   m_ObjectHideFlags: 0
