@@ -3,101 +3,141 @@ using System.Collections.Generic;
 
 public class LadderLaneSpawner : MonoBehaviour
 {
-    public GameObject ladderPrefab;
+    [Header("Prefab & Surface")]
+    public GameObject ladderPrefab;          // Root hat BoxCollider (Trigger), Child "Visual" enthält Renderers
     public Transform surfaceRef;
     public string ladderLayerName = "Ladder";
 
-    public float zPos = 32.5f;
-    public float xMin = -5f, xMax = 20f;
-    public bool leftToRight = true;
+    [Header("Lane")]
+    public float zPos = 0f;
+    public float xMin = 0f, xMax = 15f;      // Reihenfolge egal
+    public bool  leftToRight = true;
     public float speed = 5f;
 
-    public float minLength = 1.8f;
-    public float maxLength = 3.2f;
-    public float minGap = 0.15f;
-    public float maxGap = 0.45f;
-
-    public int prewarmCount = 2;
-    public int maxAlive = 6;
+    [Header("Spawn")]
+    public float targetLength = 2.5f;        // gewünschte WORLD-Länge
+    public float gap = 0.6f;                 // Abstand zwischen Leitern (World)
+    public int   maxAlive = 8;
     public float startDelay = 0f;
 
     readonly List<GameObject> alive = new();
     float timer;
+    float baseVisualLen = -1f;
 
     void OnEnable()
     {
         if (!ladderPrefab || ladderPrefab.scene.IsValid()) { enabled = false; return; }
         if (!surfaceRef) { enabled = false; return; }
 
-        timer = startDelay;
-
-        float topY = GetTopY(surfaceRef);
-        for (int i = 0; i < prewarmCount; i++)
+        if (baseVisualLen <= 0f)
         {
-            float f = (i + 1f) / (prewarmCount + 1f);
-            float x = Mathf.Lerp(leftToRight ? xMin : xMax, leftToRight ? xMax : xMin, f);
-            SpawnAt(x, topY, Random.Range(minLength, maxLength));
+            baseVisualLen = MeasureVisualLength(ladderPrefab.transform);
+            if (baseVisualLen <= 0f) baseVisualLen = 1f;
         }
+
+        timer = startDelay;
     }
 
     void Update()
     {
         for (int i = alive.Count - 1; i >= 0; i--) if (!alive[i]) alive.RemoveAt(i);
+        if (alive.Count >= maxAlive) return;
 
         timer -= Time.deltaTime;
-        if (timer <= 0f && alive.Count < maxAlive)
+        if (timer <= 0f)
         {
-            float len = Random.Range(minLength, maxLength);
-            float gap = Random.Range(minGap, maxGap);
-            float nextDelay = (len + gap) / Mathf.Max(0.01f, speed);
+            float lo = Mathf.Min(xMin, xMax);
+            float hi = Mathf.Max(xMin, xMax);
+            float laneWidth = Mathf.Max(0.01f, hi - lo);
 
-            SpawnAt(leftToRight ? xMin : xMax, GetTopY(surfaceRef), len);
-            timer = Mathf.Max(0.15f, nextDelay);
+            float len   = Mathf.Min(targetLength, laneWidth);
+            float step  = len + Mathf.Max(0f, gap);
+            float delay = step / Mathf.Max(0.01f, Mathf.Abs(speed));
+
+            SpawnOne(len);
+            timer = delay;
         }
     }
 
-    void SpawnAt(float x, float topY, float length)
+    void SpawnOne(float worldLen)
     {
-        var go = Instantiate(ladderPrefab);
+        float lo = Mathf.Min(xMin, xMax);
+        float hi = Mathf.Max(xMin, xMax);
+        float xStart = leftToRight ? lo : hi;
+        float yTop   = GetTopY(surfaceRef);
+
+        // >>> unter diesem Spawner parenten
+        var go = Instantiate(
+            ladderPrefab,
+            new Vector3(xStart, yTop, zPos),
+            Quaternion.identity,
+            transform
+        );
+
         SetLayerRecursive(go, ladderLayerName);
-        go.transform.position = new Vector3(x, topY, zPos);
 
-        var plat = go.GetComponent<LadderPlatform>();
-        if (!plat) plat = go.AddComponent<LadderPlatform>();
-        plat.size  = new Vector3(length, plat.size.y <= 0f ? 0.3f : plat.size.y, Mathf.Max(plat.size.z, 0.6f));
-        plat.LaneZ = zPos;
+        // Visual auf Ziel-Länge skalieren
+        Transform visual = go.transform.Find("Visual");
+        if (visual != null)
+        {
+            float scaleX = worldLen / baseVisualLen;
+            var s = visual.localScale;
+            visual.localScale = new Vector3(scaleX, s.y, s.z);
+        }
 
-        var col = go.GetComponentInChildren<BoxCollider>();
-        if (!col) col = go.AddComponent<BoxCollider>();
+        // Collider: zentriere auf Visual-Mitte und setze passende Größe
+        var col = go.GetComponent<BoxCollider>(); if (!col) col = go.AddComponent<BoxCollider>();
         col.isTrigger = true;
-        col.center    = new Vector3(0f, 0.15f, 0f);
-        col.size      = new Vector3(Mathf.Max(1f, length), 0.3f, 0.8f);
 
+        Bounds vb = (visual ? CombinedBoundsOf(visual) : CombinedBoundsOf(go.transform));
+        // Center in lokale Koordinaten des Root umrechnen:
+        Vector3 localCenter = go.transform.InverseTransformPoint(vb.center);
+        col.center = new Vector3(localCenter.x, 0.15f, localCenter.z);
+        // Breite = Visual-Länge, Tiefe konstant
+        col.size   = new Vector3(Mathf.Max(0.1f, worldLen), 0.3f, 0.6f);
+
+        // Rigidbody
         var rb = go.GetComponent<Rigidbody>();
         if (!rb) { rb = go.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.interpolation = RigidbodyInterpolation.Interpolate; }
 
-        var mover = go.GetComponent<LadderMover>();
-        if (!mover) mover = go.AddComponent<LadderMover>();
+        // Mover – normalisierte Bounds
+        var mover = go.GetComponent<LadderMover>() ?? go.AddComponent<LadderMover>();
         mover.speed = speed * (leftToRight ? 1f : -1f);
-        mover.xMin  = Mathf.Min(xMin, xMax) - 2f;
-        mover.xMax  = Mathf.Max(xMin, xMax) + 2f;
+        mover.xMin  = lo - 2f;
+        mover.xMax  = hi + 2f;
 
         alive.Add(go);
     }
 
-    float GetTopY(Transform t)
+    float MeasureVisualLength(Transform root)
     {
-        float top = t.position.y;
-        foreach (var r in t.GetComponentsInChildren<Renderer>()) top = Mathf.Max(top, r.bounds.max.y);
-        foreach (var c in t.GetComponentsInChildren<Collider>()) top = Mathf.Max(top, c.bounds.max.y);
+        Transform v = root.Find("Visual");
+        Bounds b = v ? CombinedBoundsOf(v) : CombinedBoundsOf(root);
+        return b.size.x;
+    }
+
+    Bounds CombinedBoundsOf(Transform t)
+    {
+        var rends = t.GetComponentsInChildren<Renderer>(true);
+        if (rends.Length == 0) return new Bounds(t.position, Vector3.one * 0.01f);
+        Bounds b = rends[0].bounds;
+        for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
+        return b;
+    }
+
+    float GetTopY(Transform tr)
+    {
+        float top = tr.position.y;
+        foreach (var r in tr.GetComponentsInChildren<Renderer>()) top = Mathf.Max(top, r.bounds.max.y);
+        foreach (var c in tr.GetComponentsInChildren<Collider>()) top = Mathf.Max(top, c.bounds.max.y);
         return top;
     }
 
-    static void SetLayerRecursive(GameObject go, string layerName)
+    static void SetLayerRecursive(GameObject root, string layerName)
     {
         int l = LayerMask.NameToLayer(layerName);
         if (l < 0) return;
-        foreach (var tr in go.GetComponentsInChildren<Transform>(true))
+        foreach (var tr in root.GetComponentsInChildren<Transform>(true))
             tr.gameObject.layer = l;
     }
 }

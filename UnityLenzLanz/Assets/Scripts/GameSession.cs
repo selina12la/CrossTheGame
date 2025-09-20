@@ -48,12 +48,19 @@ public class GameSession : MonoBehaviour
         if (I == null) return;
         I.Lives = Mathf.Max(0, I.Lives - amount);
         OnLivesChanged?.Invoke(I.Lives);
+
         if (I.Lives <= 0)
         {
             I.LoadGameOver();
             return;
         }
 
+        I.RestartCurrent();
+    }
+
+    public static void ReloadNoPenalty()
+    {
+        if (I == null) return;
         I.RestartCurrent();
     }
 
@@ -70,7 +77,13 @@ public class GameSession : MonoBehaviour
 
     public void LoadMenu() => SceneManager.LoadScene("MainMenu");
     public void LoadGame() => SceneManager.LoadScene("GameScene");
-    public void LoadGameOver() => SceneManager.LoadScene("GameOver");
+
+    public void LoadGameOver()
+    {
+        Lives = startLives;
+        OnLivesChanged?.Invoke(Lives);
+        SceneManager.LoadScene("GameOver");
+    }
 
     public void StartNewRun()
     {
